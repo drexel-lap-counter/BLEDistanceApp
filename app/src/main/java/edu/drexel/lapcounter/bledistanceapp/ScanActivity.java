@@ -137,19 +137,16 @@ public class ScanActivity extends ListActivity {
         if (device == null)
             return;
 
-        Toast.makeText(this, device.getAddress(), Toast.LENGTH_SHORT).show();
-
-        Intent intent = new Intent(this, DistanceActivity.class);
-        intent.putExtra(DistanceActivity.EXTRAS_DEVICE_NAME, device.getName());
-        intent.putExtra(DistanceActivity.EXTRAS_DEVICE_ADDRESS, device.getAddress());
-
-
         // Stop scanning if we are still scanning
         if (mScanning) {
             mBluetoothAdapter.stopLeScan(mLeScanCallback);
             mScanning = false;
         }
 
+        // Launch the distance estimation app
+        Intent intent = new Intent(this, DistanceActivity.class);
+        intent.putExtra(DistanceActivity.EXTRAS_DEVICE_NAME, device.getName());
+        intent.putExtra(DistanceActivity.EXTRAS_DEVICE_ADDRESS, device.getAddress());
         startActivity(intent);
     }
 
