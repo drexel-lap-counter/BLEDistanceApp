@@ -49,6 +49,8 @@ public class DistanceActivity extends AppCompatActivity {
 
     // Objects for distance estimation
     private LowPassFilter mRssiFilter = new MovingAverage(10);
+    // These coefficients are from the regression curve for Peter's phone vs Puck.js (Air to Air)
+    private DistanceEstimator mDistEstimator = new LogarithmicModel(-64.1, -7.47);
 
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
         @Override
@@ -196,13 +198,18 @@ public class DistanceActivity extends AppCompatActivity {
     private void updateDistance(int rssi) {
         // TODO: Determine what size is best for filtering out noise
         // while keeping update frequency high.
-        double filtered = mRssiFilter.filter(rssi);
-        String displayVal = String.format("%.1f dBm", filtered);
-        mViewRssiFiltered.setText(displayVal);
+        double filteredRssi = mRssiFilter.filter(rssi);
+        mViewRssiFiltered.setText(String.format("%.1f dBm", filteredRssi));
+
+        double distEstimate = mDistEstimator.getDistance(filteredRssi);
+        mViewDistance.setText(String.format("%.2f ft", distEstimate));
+
     }
 
     private void clearUI() {
         mViewRssi.setText(R.string.no_data);
+        mViewDistance.setText(R.string.no_data);
+        mViewRssiFiltered.setText(R.string.no_data);
     }
 
     private void updateConnectionState(final int resourceId) {
