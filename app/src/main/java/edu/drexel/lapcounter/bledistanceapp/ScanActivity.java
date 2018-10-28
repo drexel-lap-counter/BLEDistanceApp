@@ -21,6 +21,7 @@ import android.view.View;
 import android.widget.ListView;
 import android.widget.Toast;
 
+// TODO: Don't extend ListActivity
 public class ScanActivity extends ListActivity {
     // Tag for logging
     public static final String TAG = ScanActivity.class.getSimpleName();
@@ -127,7 +128,7 @@ public class ScanActivity extends ListActivity {
             menu.findItem(R.id.menu_stop_scan).setVisible(false);
             menu.findItem(R.id.menu_scan).setVisible(true);
         }
-        return true;
+        return super.onCreateOptionsMenu(menu);
     }
 
     @Override
@@ -138,14 +139,18 @@ public class ScanActivity extends ListActivity {
 
         Toast.makeText(this, device.getAddress(), Toast.LENGTH_SHORT).show();
 
-        // TODO: Create new intent
+        Intent intent = new Intent(this, DistanceActivity.class);
+        intent.putExtra(DistanceActivity.EXTRAS_DEVICE_NAME, device.getName());
+        intent.putExtra(DistanceActivity.EXTRAS_DEVICE_ADDRESS, device.getAddress());
 
+
+        // Stop scanning if we are still scanning
         if (mScanning) {
             mBluetoothAdapter.stopLeScan(mLeScanCallback);
             mScanning = false;
         }
 
-        // TODO: Start new activity
+        startActivity(intent);
     }
 
     /**

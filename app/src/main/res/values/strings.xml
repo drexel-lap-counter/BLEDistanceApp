@@ -6,4 +6,12 @@
     <string name="menu_scan">Scan</string>
     <string name="menu_stop_scan">Stop</string>
     <string name="unknown_device">Unnamed Device</string>
+    <string name="label_name">Device Name:</string>
+    <string name="label_address">MAC Address:</string>
+    <string name="label_conn_state">State:</string>
+    <string name="label_rssi">RSSI:</string>
+    <string name="label_dist">Est. Distance</string>
+    <string name="title_distance">Distance Estimation</string>
+    <string name="menu_disconnect">Disconnect</string>
+    <string name="menu_connect">Connect</string>
 </resources>
