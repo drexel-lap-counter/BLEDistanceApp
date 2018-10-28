@@ -1,4 +1,9 @@
 <resources>
     <string name="app_name">BLEDistanceApp</string>
     <string name="title_devices">Find Device</string>
+    <string name="ble_not_supported">BLE Not Supported</string>
+    <string name="error_bluetooth_not_supported">Bluetooth not supported.</string>
+    <string name="menu_scan">Scan</string>
+    <string name="menu_stop_scan">Stop</string>
+    <string name="unknown_device">Unnamed Device</string>
 </resources>
