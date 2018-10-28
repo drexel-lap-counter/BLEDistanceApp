@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">BLEDistanceApp</string>
+    <string name="title_devices">Find Device</string>
+</resources>
