@@ -24,7 +24,7 @@ public class DistanceActivity extends AppCompatActivity {
     public static final String EXTRAS_DEVICE_ADDRESS = "DEVICE_ADDRESS";
 
     // Update RSSI field every second
-    public static final int RSSI_PERIOD = 1000;
+    public static final int RSSI_PERIOD = 500;
 
     // Name and MAC address of the selected Bluetooth device
     private String mDeviceName;
@@ -35,6 +35,8 @@ public class DistanceActivity extends AppCompatActivity {
     private TextView mViewRssi;
     private TextView mViewName;
     private TextView mViewAddress;
+    private TextView mViewDistance;
+    private TextView mViewRssiFiltered;
 
     // Whether we are connected to the device
     private boolean mConnected = false;
@@ -44,6 +46,9 @@ public class DistanceActivity extends AppCompatActivity {
 
     // The service for getting bluetooth updates
     private BLEService mBleService;
+
+    // Objects for distance estimation
+    private LowPassFilter mRssiFilter = new MovingAverage(10);
 
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
         @Override
@@ -79,7 +84,8 @@ public class DistanceActivity extends AppCompatActivity {
                 clearUI();
             } else if (BLEService.ACTION_RSSI_AVAILABLE.equals(action)) {
                 int rssi = intent.getIntExtra(BLEService.EXTRA_RSSI, 0);
-                mViewRssi.setText(String.format("%d", rssi));
+                mViewRssi.setText(String.format("%d dBm", rssi));
+                updateDistance(rssi);
             }
         }
     };
@@ -94,11 +100,13 @@ public class DistanceActivity extends AppCompatActivity {
         mDeviceName = intent.getStringExtra(EXTRAS_DEVICE_NAME);
         mDeviceAddress = intent.getStringExtra(EXTRAS_DEVICE_ADDRESS);
 
-        // Get the four text fields we can update
+        // Get the text fields we can update
         mViewState = findViewById(R.id.device_state);
         mViewAddress = findViewById(R.id.device_address);
         mViewName = findViewById(R.id.device_name);
         mViewRssi = findViewById(R.id.device_rssi);
+        mViewDistance = findViewById(R.id.device_dist);
+        mViewRssiFiltered = findViewById(R.id.device_rssi_filtered);
 
         // Display the device name and address
         mViewName.setText(mDeviceName);
@@ -183,6 +191,14 @@ public class DistanceActivity extends AppCompatActivity {
                 scheduleRssiRequest();
             }
         }, RSSI_PERIOD);
+    }
+
+    private void updateDistance(int rssi) {
+        // TODO: Determine what size is best for filtering out noise
+        // while keeping update frequency high.
+        double filtered = mRssiFilter.filter(rssi);
+        String displayVal = String.format("%.1f dBm", filtered);
+        mViewRssiFiltered.setText(displayVal);
     }
 
     private void clearUI() {
