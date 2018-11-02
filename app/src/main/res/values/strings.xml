@@ -18,4 +18,5 @@
     <string name="disconnected">Disconnected</string>
     <string name="no_data">No Data</string>
     <string name="label_rssi_filtered">Filtered RSSI:</string>
+    <string name="label_lap_count">Lap Count</string>
 </resources>

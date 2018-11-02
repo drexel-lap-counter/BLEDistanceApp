@@ -37,6 +37,7 @@ public class DistanceActivity extends AppCompatActivity {
     private TextView mViewAddress;
     private TextView mViewDistance;
     private TextView mViewRssiFiltered;
+    private TextView mViewLapCount;
 
     // Whether we are connected to the device
     private boolean mConnected = false;
@@ -51,6 +52,9 @@ public class DistanceActivity extends AppCompatActivity {
     private LowPassFilter mRssiFilter = new MovingAverage(10);
     // These coefficients are from the regression curve for Peter's phone vs Puck.js (Air to Air)
     private DistanceEstimator mDistEstimator = new LogarithmicModel(-64.1, -7.47);
+
+    // Try our new sliding window lap counter. 12 ft threshold, sliding window size 5
+    private LapCounter mLapCounter = new SlidingWindowCounter(3.0, 5);
 
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
         @Override
@@ -109,6 +113,7 @@ public class DistanceActivity extends AppCompatActivity {
         mViewRssi = findViewById(R.id.device_rssi);
         mViewDistance = findViewById(R.id.device_dist);
         mViewRssiFiltered = findViewById(R.id.device_rssi_filtered);
+        mViewLapCount = findViewById(R.id.lap_count);
 
         // Display the device name and address
         mViewName.setText(mDeviceName);
@@ -204,6 +209,8 @@ public class DistanceActivity extends AppCompatActivity {
         double distEstimate = mDistEstimator.getDistance(filteredRssi);
         mViewDistance.setText(String.format("%.2f ft", distEstimate));
 
+        int lapCount = mLapCounter.updateCount(distEstimate);
+        mViewLapCount.setText(String.format("%d Laps", lapCount));
     }
 
     private void clearUI() {
