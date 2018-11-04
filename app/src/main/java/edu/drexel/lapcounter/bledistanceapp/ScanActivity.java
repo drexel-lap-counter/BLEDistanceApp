@@ -18,11 +18,11 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ListView;
 import android.widget.Toast;
 
-// TODO: Don't extend ListActivity
-public class ScanActivity extends ListActivity {
+public class ScanActivity extends AppCompatActivity {
     // Tag for logging
     public static final String TAG = ScanActivity.class.getSimpleName();
 
@@ -38,6 +38,9 @@ public class ScanActivity extends ListActivity {
 
     // This manages the ListView
     private BLEDeviceListAdapter mDeviceListAdapter;
+
+    // Reference to the ListView to store the devices.
+    private ListView mDeviceList;
 
     // Handle scan schedule
     private boolean mScanning = false;
@@ -60,14 +63,43 @@ public class ScanActivity extends ListActivity {
         }
     };
 
+    // Callbacks for list items.
+    private AdapterView.OnItemClickListener mOnItemClick = new AdapterView.OnItemClickListener() {
+        @Override
+        public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+            BluetoothDevice device = mDeviceListAdapter.getDevice(position);
+            if (device == null)
+                return;
+
+            // Stop scanning if we are still scanning
+            if (mScanning) {
+                mBluetoothAdapter.stopLeScan(mLeScanCallback);
+                mScanning = false;
+            }
+
+            // Launch the distance estimation app
+            launchDistanceActivity(device);
+
+        }
+    };
+
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_scan);
+
+        getSupportActionBar().setTitle(R.string.title_devices);
 
 
         // Set the title of the activity
         if (getActionBar() != null)
             getActionBar().setTitle(R.string.title_devices);
+
+        mDeviceList = findViewById(R.id.list_devices);
+
+        bindListCallbacks();
 
         getLocationPermission();
         checkBLESupported();
@@ -82,7 +114,7 @@ public class ScanActivity extends ListActivity {
         getBluetoothPermission();
 
         mDeviceListAdapter = new BLEDeviceListAdapter(getLayoutInflater(), this);
-        setListAdapter(mDeviceListAdapter);
+        mDeviceList.setAdapter(mDeviceListAdapter);
 
         scanBLEDevices(true);
     }
@@ -131,19 +163,11 @@ public class ScanActivity extends ListActivity {
         return super.onCreateOptionsMenu(menu);
     }
 
-    @Override
-    protected void onListItemClick(ListView l, View v, int position, long id) {
-        BluetoothDevice device = mDeviceListAdapter.getDevice(position);
-        if (device == null)
-            return;
+    void bindListCallbacks() {
+        mDeviceList.setOnItemClickListener(mOnItemClick);
+    }
 
-        // Stop scanning if we are still scanning
-        if (mScanning) {
-            mBluetoothAdapter.stopLeScan(mLeScanCallback);
-            mScanning = false;
-        }
-
-        // Launch the distance estimation app
+    void launchDistanceActivity(BluetoothDevice device) {
         Intent intent = new Intent(this, DistanceActivity.class);
         intent.putExtra(DistanceActivity.EXTRAS_DEVICE_NAME, device.getName());
         intent.putExtra(DistanceActivity.EXTRAS_DEVICE_ADDRESS, device.getAddress());
