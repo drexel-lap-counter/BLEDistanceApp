@@ -54,7 +54,7 @@ public class DistanceActivity extends AppCompatActivity {
     private DistanceEstimator mDistEstimator = new LogarithmicModel(-64.1, -7.47);
 
     // Try our new sliding window lap counter. 12 ft threshold, sliding window size 5
-    private LapCounter mLapCounter = new SlidingWindowCounter(3.0, 5);
+    private LapCounter mLapCounter = new SlidingWindowCounter(5.0, 3);
 
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
         @Override

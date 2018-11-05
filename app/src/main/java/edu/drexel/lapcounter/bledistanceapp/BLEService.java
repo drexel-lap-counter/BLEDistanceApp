@@ -79,6 +79,13 @@ public class BLEService extends Service {
         return mBinder;
     }
 
+    @Override
+    public boolean onUnbind(Intent intent) {
+        // Make sure we close our Bluetooth connections
+        close();
+        return super.onUnbind(intent);
+    }
+
     /**
      * Make this class act something like a singleton? I'm not 100 sure on this
      */
