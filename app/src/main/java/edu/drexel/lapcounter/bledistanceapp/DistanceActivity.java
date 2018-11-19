@@ -13,6 +13,8 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.EditText;
 import android.widget.TextView;
 
 public class DistanceActivity extends AppCompatActivity {
@@ -38,6 +40,7 @@ public class DistanceActivity extends AppCompatActivity {
     private TextView mViewDistance;
     private TextView mViewRssiFiltered;
     private TextView mViewLapCount;
+    private TextView mViewThreshold;
 
     // Whether we are connected to the device
     private boolean mConnected = false;
@@ -53,8 +56,10 @@ public class DistanceActivity extends AppCompatActivity {
     // These coefficients are from the regression curve for Peter's phone vs Puck.js (Air to Air)
     private DistanceEstimator mDistEstimator = new LogarithmicModel(-64.1, -7.47);
 
-    // Try our new sliding window lap counter. 12 ft threshold, sliding window size 5
-    private LapCounter mLapCounter = new SlidingWindowCounter(5.0, 3);
+    private Double threshold = 5.0;
+    private int windowSize = 3;
+    // Try our new sliding window lap counter. x ft threshold, sliding window size n
+    private LapCounter mLapCounter = new SlidingWindowCounter(threshold, windowSize);
 
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
         @Override
@@ -114,10 +119,12 @@ public class DistanceActivity extends AppCompatActivity {
         mViewDistance = findViewById(R.id.device_dist);
         mViewRssiFiltered = findViewById(R.id.device_rssi_filtered);
         mViewLapCount = findViewById(R.id.lap_count);
+        mViewThreshold = findViewById(R.id.threshold);
 
         // Display the device name and address
         mViewName.setText(mDeviceName);
         mViewAddress.setText(mDeviceAddress);
+        mViewThreshold.setText(Double.toString(threshold));
 
         // Set the title bar and add a back button
         getSupportActionBar().setTitle(R.string.title_distance);
@@ -180,6 +187,15 @@ public class DistanceActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
+    public void updateThreshold(View view){
+        EditText thresholdEditor = (EditText)findViewById(R.id.editThreshold);
+        this.threshold = Double.parseDouble(thresholdEditor.getText().toString());
+        mLapCounter = new SlidingWindowCounter(threshold, windowSize);
+
+        thresholdEditor.setText("");
+        mViewThreshold.setText(Double.toString(threshold));
+    }
+
     private void scheduleRssiRequest() {
         mHandler.postDelayed(new Runnable() {
             @Override
@@ -187,6 +203,7 @@ public class DistanceActivity extends AppCompatActivity {
                 // Stop if we are no longer connected
                 if (!mConnected) {
                     Log.d(TAG, "Stop Reading RSSI");
+                    scheduleReconnect();
                     return;
                 }
 
@@ -196,6 +213,24 @@ public class DistanceActivity extends AppCompatActivity {
 
                 // Schedule another RSSI request.
                 scheduleRssiRequest();
+            }
+        }, RSSI_PERIOD);
+    }
+
+    private void scheduleReconnect() {
+        mHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                // if we're not connected
+                if (!mConnected) {
+                    if(mBleService.connect(mDeviceAddress)) {    // try to connect
+                        scheduleRssiRequest();          // schedule a request if we succeed
+                    }
+                    else {
+                        scheduleReconnect();            // otherwise try again
+                    }
+                    return;
+                }
             }
         }, RSSI_PERIOD);
     }
