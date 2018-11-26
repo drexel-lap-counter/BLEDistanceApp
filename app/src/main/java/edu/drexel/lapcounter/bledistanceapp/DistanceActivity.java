@@ -96,7 +96,10 @@ public class DistanceActivity extends AppCompatActivity {
             } else if (BLEService.ACTION_RSSI_AVAILABLE.equals(action)) {
                 int rssi = intent.getIntExtra(BLEService.EXTRA_RSSI, 0);
                 mViewRssi.setText(String.format("%d dBm", rssi));
-                updateDistance(rssi);
+
+                // Filter out null RSSI values
+                if (rssi != 0)
+                    updateDistance(rssi);
             }
         }
     };
