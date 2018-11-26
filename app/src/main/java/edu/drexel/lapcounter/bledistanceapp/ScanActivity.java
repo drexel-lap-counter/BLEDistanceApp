@@ -2,7 +2,6 @@ package edu.drexel.lapcounter.bledistanceapp;
 
 import android.Manifest;
 import android.app.Activity;
-import android.app.ListActivity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
@@ -168,9 +167,9 @@ public class ScanActivity extends AppCompatActivity {
     }
 
     void launchDistanceActivity(BluetoothDevice device) {
-        Intent intent = new Intent(this, DistanceActivity.class);
-        intent.putExtra(DistanceActivity.EXTRAS_DEVICE_NAME, device.getName());
-        intent.putExtra(DistanceActivity.EXTRAS_DEVICE_ADDRESS, device.getAddress());
+        Intent intent = new Intent(this, LapCountActivity.class);
+        intent.putExtra(LapCountActivity.EXTRAS_DEVICE_NAME, device.getName());
+        intent.putExtra(LapCountActivity.EXTRAS_DEVICE_ADDRESS, device.getAddress());
         startActivity(intent);
     }
 

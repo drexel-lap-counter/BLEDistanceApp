@@ -17,9 +17,9 @@ import android.view.View;
 import android.widget.EditText;
 import android.widget.TextView;
 
-public class DistanceActivity extends AppCompatActivity {
+public class LapCountActivity extends AppCompatActivity {
     // For logging
-    private final static String TAG = DistanceActivity.class.getSimpleName();
+    private final static String TAG = LapCountActivity.class.getSimpleName();
 
     // Labels for data from the intent
     public static final String EXTRAS_DEVICE_NAME = "DEVICE_NAME";
@@ -50,7 +50,7 @@ public class DistanceActivity extends AppCompatActivity {
     // The service for getting bluetooth updates
     private BLEService mBleService;
 
-    // Objects for distance estimation
+    // Filter for RSSI values since they are noisy
     private LowPassFilter mRssiFilter = new MovingAverage(10);
 
     private Double threshold = 60.0;
@@ -104,7 +104,7 @@ public class DistanceActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_distance);
+        setContentView(R.layout.activity_lap_count);
 
         // Get the device info from the intent
         Intent intent = getIntent();
@@ -126,7 +126,7 @@ public class DistanceActivity extends AppCompatActivity {
         mViewThreshold.setText(Double.toString(threshold));
 
         // Set the title bar and add a back button
-        getSupportActionBar().setTitle(R.string.title_distance);
+        getSupportActionBar().setTitle(R.string.title_lap_count);
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
 
         Intent gattServiceIntent = new Intent(this,BLEService.class);
