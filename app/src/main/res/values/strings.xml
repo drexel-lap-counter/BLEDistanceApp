@@ -18,5 +18,9 @@
     <string name="disconnected">Disconnected</string>
     <string name="no_data">No Data</string>
     <string name="label_rssi_filtered">Filtered RSSI:</string>
-    <string name="label_lap_count">Lap Count</string>
+    <string name="label_lap_count">Lap Count:</string>
+    <string name="label_threshold">Threshold abs(RSSI):</string>
+    <string name="label_set_threshold">Set Threshold abs(RSSI):</string>
+    <string name="hint_threshold">40</string>
+    <string name="label_btn_set_threshold">Set</string>
 </resources>

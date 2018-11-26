@@ -37,7 +37,6 @@ public class DistanceActivity extends AppCompatActivity {
     private TextView mViewRssi;
     private TextView mViewName;
     private TextView mViewAddress;
-    private TextView mViewDistance;
     private TextView mViewRssiFiltered;
     private TextView mViewLapCount;
     private TextView mViewThreshold;
@@ -53,10 +52,8 @@ public class DistanceActivity extends AppCompatActivity {
 
     // Objects for distance estimation
     private LowPassFilter mRssiFilter = new MovingAverage(10);
-    // These coefficients are from the regression curve for Peter's phone vs Puck.js (Air to Air)
-    private DistanceEstimator mDistEstimator = new LogarithmicModel(-64.1, -7.47);
 
-    private Double threshold = 5.0;
+    private Double threshold = 60.0;
     private int windowSize = 3;
     // Try our new sliding window lap counter. x ft threshold, sliding window size n
     private LapCounter mLapCounter = new SlidingWindowCounter(threshold, windowSize);
@@ -99,7 +96,7 @@ public class DistanceActivity extends AppCompatActivity {
 
                 // Filter out null RSSI values
                 if (rssi != 0)
-                    updateDistance(rssi);
+                    updateLapCount(rssi);
             }
         }
     };
@@ -119,7 +116,6 @@ public class DistanceActivity extends AppCompatActivity {
         mViewAddress = findViewById(R.id.device_address);
         mViewName = findViewById(R.id.device_name);
         mViewRssi = findViewById(R.id.device_rssi);
-        mViewDistance = findViewById(R.id.device_dist);
         mViewRssiFiltered = findViewById(R.id.device_rssi_filtered);
         mViewLapCount = findViewById(R.id.lap_count);
         mViewThreshold = findViewById(R.id.threshold);
@@ -191,7 +187,7 @@ public class DistanceActivity extends AppCompatActivity {
     }
 
     public void updateThreshold(View view){
-        EditText thresholdEditor = (EditText)findViewById(R.id.editThreshold);
+        EditText thresholdEditor = findViewById(R.id.edit_threshold);
         this.threshold = Double.parseDouble(thresholdEditor.getText().toString());
         mLapCounter = new SlidingWindowCounter(threshold, windowSize);
 
@@ -227,7 +223,7 @@ public class DistanceActivity extends AppCompatActivity {
                 // if we're not connected
                 if (!mConnected) {
                     if(mBleService.connect(mDeviceAddress)) {    // try to connect
-                        scheduleRssiRequest();          // schedule a request if we succeed
+                        scheduleRssiRequest();          // schedule an RSSI request if we succeed
                     }
                     else {
                         scheduleReconnect();            // otherwise try again
@@ -238,22 +234,18 @@ public class DistanceActivity extends AppCompatActivity {
         }, RSSI_PERIOD);
     }
 
-    private void updateDistance(int rssi) {
-        // TODO: Determine what size is best for filtering out noise
-        // while keeping update frequency high.
+    private void updateLapCount(int rssi) {
         double filteredRssi = mRssiFilter.filter(rssi);
         mViewRssiFiltered.setText(String.format("%.1f dBm", filteredRssi));
 
-        double distEstimate = mDistEstimator.getDistance(filteredRssi);
-        mViewDistance.setText(String.format("%.2f ft", distEstimate));
-
-        int lapCount = mLapCounter.updateCount(distEstimate);
+        // Note: I am taking the absolute value of the RSSI so I do not have to change
+        // the logic of the underlying lap counter
+        int lapCount = mLapCounter.updateCount(Math.abs(filteredRssi));
         mViewLapCount.setText(String.format("%d Laps", lapCount));
     }
 
     private void clearUI() {
         mViewRssi.setText(R.string.no_data);
-        mViewDistance.setText(R.string.no_data);
         mViewRssiFiltered.setText(R.string.no_data);
     }
 
