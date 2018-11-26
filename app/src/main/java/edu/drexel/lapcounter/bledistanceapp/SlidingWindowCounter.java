@@ -116,7 +116,10 @@ public class SlidingWindowCounter implements LapCounter {
             // If we cross cross the threshold in the other direction while currently far,
             // we are now near and have completed a lap.
             mState = State.NEAR;
-            mLapCount++;
+
+            // Using swimming terminology, out and back is 2 laps, not 1
+            mLapCount += 2;
+
             Log.d(TAG, "Far -> Near");
         }
     }
