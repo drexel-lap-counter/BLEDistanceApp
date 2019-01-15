@@ -25,8 +25,11 @@ public class LapCountActivity extends AppCompatActivity {
     public static final String EXTRAS_DEVICE_NAME = "DEVICE_NAME";
     public static final String EXTRAS_DEVICE_ADDRESS = "DEVICE_ADDRESS";
 
-    // Update RSSI field every second
+    // How often to poll for RSSI and update its TextView.
     public static final int RSSI_PERIOD = 500;
+
+    // How often a reconnect should be attempted.
+    public static final int RECONNECT_PERIOD = 1000;
 
     // Name and MAC address of the selected Bluetooth device
     private String mDeviceName;
@@ -43,6 +46,9 @@ public class LapCountActivity extends AppCompatActivity {
 
     // Whether we are connected to the device
     private boolean mConnected = false;
+
+    // Whether we disconnected by pressing the "Disconnect" menu item.
+    private boolean mManuallyDisconnected = false;
 
     // Handler for requesting the RSSI from the BLE Service
     private Handler mHandler = new Handler();
@@ -90,6 +96,17 @@ public class LapCountActivity extends AppCompatActivity {
                 updateConnectionState(R.string.disconnected);
                 invalidateOptionsMenu();
                 clearUI();
+
+                if (mManuallyDisconnected) {
+                    // So this disconnect event corresponds to us manually disconnecting.
+                    // Reset this flag so we can track future manual disconnects.
+                    mManuallyDisconnected = false;
+                } else {
+                    // Otherwise, this disconnect event corresponds to something else, e.g.,
+                    // going out of range.
+                    // Let's try to reconnect.
+                    scheduleReconnect();
+                }
             } else if (BLEService.ACTION_RSSI_AVAILABLE.equals(action)) {
                 int rssi = intent.getIntExtra(BLEService.EXTRA_RSSI, 0);
                 mViewRssi.setText(String.format("%d dBm", rssi));
@@ -177,6 +194,7 @@ public class LapCountActivity extends AppCompatActivity {
                 mBleService.connect(mDeviceAddress);
                 return true;
             case R.id.menu_disconnect:
+                mManuallyDisconnected = true;
                 mBleService.disconnect();
                 return true;
             case android.R.id.home:
@@ -201,8 +219,8 @@ public class LapCountActivity extends AppCompatActivity {
             public void run() {
                 // Stop if we are no longer connected
                 if (!mConnected) {
-                    Log.d(TAG, "Stop Reading RSSI");
-                    scheduleReconnect();
+                    Log.d(TAG, "mConnected is false. I won't be scheduling another RSSI " +
+                               "request for now.");
                     return;
                 }
 
@@ -220,18 +238,13 @@ public class LapCountActivity extends AppCompatActivity {
         mHandler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                // if we're not connected
-                if (!mConnected) {
-                    if(mBleService.connect(mDeviceAddress)) {    // try to connect
-                        scheduleRssiRequest();          // schedule an RSSI request if we succeed
-                    }
-                    else {
-                        scheduleReconnect();            // otherwise try again
-                    }
+                if (mConnected || mBleService.connect(mDeviceAddress)) {
                     return;
                 }
+
+                scheduleReconnect();
             }
-        }, RSSI_PERIOD);
+        }, RECONNECT_PERIOD);
     }
 
     private void updateLapCount(int rssi) {

@@ -165,6 +165,12 @@ public class BLEService extends Service {
             return false;
         }
 
+        if (mConnectionState == STATE_CONNECTING) {
+            // We've already made a connect request.
+            Log.d(TAG, "connect() - returned early because mConnectionState == STATE_CONNECTING");
+            return true;
+        }
+
         // Previously connected device.  Try to reconnect.
         if (address.equals(mBluetoothDeviceAddress) && mBluetoothGatt != null) {
             Log.d(TAG, "Trying to use an existing mBluetoothGatt for connection.");
