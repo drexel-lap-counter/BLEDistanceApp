@@ -92,6 +92,7 @@ public class LapCountActivity extends AppCompatActivity {
                 invalidateOptionsMenu();
                 scheduleRssiRequest();
             } else if (BLEService.ACTION_GATT_DISCONNECTED.equals(action)) {
+                Log.d(TAG, "Received a disconnect event.");
                 mConnected = false;
                 updateConnectionState(R.string.disconnected);
                 invalidateOptionsMenu();
@@ -101,10 +102,12 @@ public class LapCountActivity extends AppCompatActivity {
                     // So this disconnect event corresponds to us manually disconnecting.
                     // Reset this flag so we can track future manual disconnects.
                     mManuallyDisconnected = false;
+                    Log.d(TAG, "Cleared flag for manual disconnect.");
                 } else {
                     // Otherwise, this disconnect event corresponds to something else, e.g.,
                     // going out of range.
                     // Let's try to reconnect.
+                    Log.d(TAG, "Scheduling a reconnect.");
                     scheduleReconnect();
                 }
             } else if (BLEService.ACTION_RSSI_AVAILABLE.equals(action)) {
@@ -195,6 +198,7 @@ public class LapCountActivity extends AppCompatActivity {
                 return true;
             case R.id.menu_disconnect:
                 mManuallyDisconnected = true;
+                Log.d(TAG, "onOptionsItemSelected() - The user manually disconnected.");
                 mBleService.disconnect();
                 return true;
             case android.R.id.home:
@@ -238,10 +242,19 @@ public class LapCountActivity extends AppCompatActivity {
         mHandler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                if (mConnected || mBleService.connect(mDeviceAddress)) {
+                if (mConnected) {
+                    Log.w(TAG, "scheduleReconnect() called when mConnected is true. _Probably_ " +
+                               "harmless, as a connect event could have fired between calls to " +
+                               "scheduleReconnect().");
                     return;
                 }
 
+                if (mBleService.connect(mDeviceAddress)) {
+                    return;
+                }
+
+                Log.w(TAG, "scheduleReconnect() - Connection attempt failed. Scheduling another " +
+                           "reconnect.");
                 scheduleReconnect();
             }
         }, RECONNECT_PERIOD);
