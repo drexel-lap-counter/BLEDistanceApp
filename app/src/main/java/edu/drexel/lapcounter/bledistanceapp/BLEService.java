@@ -42,9 +42,6 @@ public class BLEService extends Service {
     public final static String EXTRA_RSSI =
             "com.example.bluetooth.le.EXTRA_RSSI";
 
-    // Address of the device we want to connect to.
-    private String mBluetoothDeviceAddress;
-
     // Callback for GATT serverevents.
     private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
         @Override
@@ -171,27 +168,17 @@ public class BLEService extends Service {
             return true;
         }
 
-        // Previously connected device.  Try to reconnect.
-        if (address.equals(mBluetoothDeviceAddress) && mBluetoothGatt != null) {
-            Log.d(TAG, "Trying to use an existing mBluetoothGatt for connection.");
-            if (mBluetoothGatt.connect()) {
-                mConnectionState = STATE_CONNECTING;
-                return true;
-            } else {
-                return false;
-            }
-        }
-
         final BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
         if (device == null) {
             Log.w(TAG, "Device not found.  Unable to connect.");
             return false;
         }
+
         // We want to directly connect to the device, so we are setting the autoConnect
         // parameter to false.
+        // todo: maybe try autoConnect = true
         mBluetoothGatt = device.connectGatt(this, false, mGattCallback);
         Log.d(TAG, "Trying to create a new connection.");
-        mBluetoothDeviceAddress = address;
         mConnectionState = STATE_CONNECTING;
         return true;
     }
