@@ -61,8 +61,11 @@ public class LapCountActivity extends AppCompatActivity {
 
     private Double threshold = 60.0;
     private int windowSize = 3;
+
     // Try our new sliding window lap counter. x ft threshold, sliding window size n
     private LapCounter mLapCounter = new SlidingWindowCounter(threshold, windowSize);
+
+    private final DisconnectChecker mDisconnectChecker = new DisconnectChecker();
 
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
         @Override
@@ -86,8 +89,10 @@ public class LapCountActivity extends AppCompatActivity {
         @Override
         public void onReceive(Context context, Intent intent) {
             final String action = intent.getAction();
+
             if (BLEService.ACTION_GATT_CONNECTED.equals(action)) {
                 mConnected = true;
+                mDisconnectChecker.reset();
                 updateConnectionState(R.string.connected);
                 invalidateOptionsMenu();
                 scheduleRssiRequest();
@@ -112,6 +117,13 @@ public class LapCountActivity extends AppCompatActivity {
                 }
             } else if (BLEService.ACTION_RSSI_AVAILABLE.equals(action)) {
                 int rssi = intent.getIntExtra(BLEService.EXTRA_RSSI, 0);
+
+                if (mDisconnectChecker.shouldDisconnect(rssi)) {
+                    Log.d(TAG, "mDisconnectChecker.shouldDisconnect(rssi) == true");
+                    mBleService.disconnect();
+                    return;
+                }
+
                 mViewRssi.setText(String.format("%d dBm", rssi));
 
                 // Filter out null RSSI values

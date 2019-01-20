@@ -49,11 +49,11 @@ public class BLEService extends Service {
             // Publish a connect/disconnect message
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 mConnectionState = STATE_CONNECTED;
-                Log.d(TAG, "Connected to GATT server");
+                Log.d(TAG, "Connected to GATT server. status = " + status);
                 broadcastUpdate(ACTION_GATT_CONNECTED);
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 mConnectionState = STATE_DISCONNECTED;
-                Log.d(TAG, "Disconnected from GATT server");
+                Log.d(TAG, "Disconnected from GATT server. status = " + status);
                 broadcastUpdate(ACTION_GATT_DISCONNECTED);
             }
 
@@ -68,6 +68,7 @@ public class BLEService extends Service {
                 Log.w("BLE_RSSI", "Could not read remote RSSI!");
             }
         }
+
     };
 
 
@@ -122,8 +123,9 @@ public class BLEService extends Service {
      * Use the GATT object to request an update to the RSSI
      */
     public void requestRssi() {
-        if (mConnectionState == STATE_CONNECTED)
+        if (mConnectionState == STATE_CONNECTED) {
             mBluetoothGatt.readRemoteRssi();
+        }
     }
 
     /**
@@ -169,15 +171,19 @@ public class BLEService extends Service {
         }
 
         final BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
+
         if (device == null) {
             Log.w(TAG, "Device not found.  Unable to connect.");
             return false;
         }
 
+        // Release resources for a previously instantiated mBluetoothGatt.
+        close();
+
         // We want to directly connect to the device, so we are setting the autoConnect
         // parameter to false.
-        // todo: maybe try autoConnect = true
         mBluetoothGatt = device.connectGatt(this, false, mGattCallback);
+
         Log.d(TAG, "Trying to create a new connection.");
         mConnectionState = STATE_CONNECTING;
         return true;
@@ -194,6 +200,7 @@ public class BLEService extends Service {
             Log.w(TAG, "BluetoothAdapter not initialized");
             return;
         }
+
         mBluetoothGatt.disconnect();
     }
 
