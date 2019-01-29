@@ -29,6 +29,11 @@ public class MovingAverage implements LowPassFilter {
             mValues.pollFirst();
     }
 
+    public boolean windowIsFull() {
+        return mValues.size() == mMaxSize;
+    }
+
+
     /**
      * Average points in memory. If there are no points,
      * return 0 instead. Note that this will not be entirely accurate
@@ -53,5 +58,10 @@ public class MovingAverage implements LowPassFilter {
     public double filter(double value) {
         addValue(value);
         return computeAverage();
+    }
+
+    @Override
+    public void clear() {
+        mValues.clear();
     }
 }

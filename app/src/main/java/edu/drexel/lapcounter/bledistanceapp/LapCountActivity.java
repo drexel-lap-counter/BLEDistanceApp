@@ -26,7 +26,8 @@ public class LapCountActivity extends AppCompatActivity {
     public static final String EXTRAS_DEVICE_ADDRESS = "DEVICE_ADDRESS";
 
     // How often to poll for RSSI and update its TextView.
-    public static final int RSSI_PERIOD = 500;
+    public static final int RSSI_PERIOD_NORMAL = 500;
+    public static final int RSSI_PERIOD_FAST = 250;
 
     // How often a reconnect should be attempted.
     public static final int RECONNECT_PERIOD = 1000;
@@ -57,13 +58,15 @@ public class LapCountActivity extends AppCompatActivity {
     private BLEService mBleService;
 
     // Filter for RSSI values since they are noisy
-    private LowPassFilter mRssiFilter = new MovingAverage(10);
+    private MovingAverage mRssiFilter = new MovingAverage(10);
 
     private Double threshold = 60.0;
     private int windowSize = 3;
 
+    private int mConnectionCount = 0;
+
     // Try our new sliding window lap counter. x ft threshold, sliding window size n
-    private LapCounter mLapCounter = new SlidingWindowCounter(threshold, windowSize);
+    private SlidingWindowCounter mLapCounter = new SlidingWindowCounter(threshold, windowSize);
 
     private final DisconnectChecker mDisconnectChecker = new DisconnectChecker();
 
@@ -92,6 +95,7 @@ public class LapCountActivity extends AppCompatActivity {
 
             if (BLEService.ACTION_GATT_CONNECTED.equals(action)) {
                 mConnected = true;
+                mConnectionCount++;
                 mDisconnectChecker.reset();
                 updateConnectionState(R.string.connected);
                 invalidateOptionsMenu();
@@ -102,6 +106,8 @@ public class LapCountActivity extends AppCompatActivity {
                 updateConnectionState(R.string.disconnected);
                 invalidateOptionsMenu();
                 clearUI();
+                mRssiFilter.clear();
+                mLapCounter.onDisconnect();
 
                 if (mManuallyDisconnected) {
                     // So this disconnect event corresponds to us manually disconnecting.
@@ -230,6 +236,10 @@ public class LapCountActivity extends AppCompatActivity {
     }
 
     private void scheduleRssiRequest() {
+        int period = RSSI_PERIOD_NORMAL;
+        if (mLapCounter.getState() == SlidingWindowCounter.State.UNKNOWN)
+            period = RSSI_PERIOD_FAST;
+
         mHandler.postDelayed(new Runnable() {
             @Override
             public void run() {
@@ -247,7 +257,7 @@ public class LapCountActivity extends AppCompatActivity {
                 // Schedule another RSSI request.
                 scheduleRssiRequest();
             }
-        }, RSSI_PERIOD);
+        }, period);
     }
 
     private void scheduleReconnect() {
@@ -280,6 +290,12 @@ public class LapCountActivity extends AppCompatActivity {
         // the logic of the underlying lap counter
         int lapCount = mLapCounter.updateCount(Math.abs(filteredRssi));
         mViewLapCount.setText(String.format("%d Laps", lapCount));
+
+        boolean windowsFull = mLapCounter.windowIsFull() && mRssiFilter.windowIsFull();
+        if (mLapCounter.getState() == SlidingWindowCounter.State.UNKNOWN && windowsFull) {
+            boolean isReconnect = mConnectionCount > 1;
+            mLapCounter.pickZone(isReconnect);
+        }
     }
 
     private void clearUI() {

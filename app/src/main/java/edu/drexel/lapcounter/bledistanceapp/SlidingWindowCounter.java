@@ -15,12 +15,16 @@ public class SlidingWindowCounter implements LapCounter {
     // Tag for debugging
     public static final String TAG = SlidingWindowCounter.class.getSimpleName();
 
+    public static final int LAP_COUNT_INCREMENT = 2;
+
+
     /**
      * Swimmer is either near or far.
      */
     public enum State {
         NEAR,
-        FAR
+        FAR,
+        UNKNOWN,
     }
 
     /**
@@ -52,7 +56,8 @@ public class SlidingWindowCounter implements LapCounter {
     /**
      * Current state of the swimmer (near/far)
      */
-    private State mState = State.NEAR;
+    private State mState = State.UNKNOWN;
+    private State mDisconnectState = State.UNKNOWN;
 
     public SlidingWindowCounter(double threshold, int windowSize) {
         mThreshold = threshold;
@@ -64,6 +69,13 @@ public class SlidingWindowCounter implements LapCounter {
         updateWindow(dist);
         updateState();
         return mLapCount;
+    }
+
+    @Override
+    public void onDisconnect() {
+        mDeltaWindow.clear();
+        mDisconnectState = mState;
+        mState = State.UNKNOWN;
     }
 
     /**
@@ -95,10 +107,14 @@ public class SlidingWindowCounter implements LapCounter {
         return (int)Math.signum(sum);
     }
 
+    boolean windowIsFull() {
+        return mDeltaWindow.size() == mWindowSize;
+    }
+
     void updateState() {
         // If the sliding window is not yet full,
         // don't do anything
-        if (mDeltaWindow.size() < mWindowSize)
+        if (!windowIsFull())
             return;
 
         // Determine if the swimmer is moving inwards or outwards
@@ -118,9 +134,25 @@ public class SlidingWindowCounter implements LapCounter {
             mState = State.NEAR;
 
             // Using swimming terminology, out and back is 2 laps, not 1
-            mLapCount += 2;
+            mLapCount += LAP_COUNT_INCREMENT;
 
             Log.d(TAG, "Far -> Near");
+        }
+    }
+
+    State getState() {
+        return mState;
+    }
+
+    public void pickZone(boolean isReconnect) {
+        if (mPrevDist < mThreshold)
+            mState = State.NEAR;
+        else
+            mState = State.FAR;
+
+
+        if (isReconnect && mDisconnectState == State.FAR && mState == State.NEAR) {
+            mLapCount += LAP_COUNT_INCREMENT;
         }
     }
 }

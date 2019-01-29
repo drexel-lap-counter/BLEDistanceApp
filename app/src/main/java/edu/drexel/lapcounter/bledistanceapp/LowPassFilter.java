@@ -9,4 +9,10 @@ public interface LowPassFilter {
      * @return a new filtered value
      */
     double filter(double value);
+
+    /**
+     * In the case of a disconnect or other case of bad data
+     * clear the underlying filter state if it exists
+     */
+    void clear();
 }
