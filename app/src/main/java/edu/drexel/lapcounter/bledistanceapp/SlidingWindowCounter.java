@@ -76,6 +76,8 @@ public class SlidingWindowCounter implements LapCounter {
         mDeltaWindow.clear();
         mDisconnectState = mState;
         mState = State.UNKNOWN;
+        log_thread("onDisconnect() - Cleared delta window. State on disconnect was %s. State is " +
+                   "now unknown.", mDisconnectState);
     }
 
     /**
@@ -145,14 +147,27 @@ public class SlidingWindowCounter implements LapCounter {
     }
 
     public void pickZone(boolean isReconnect) {
+        log_thread("pickZone(%b) - Previous state == %s, mPrevDist == %.2f, mThreshold == %.2f",
+                   isReconnect, mState, mPrevDist, mThreshold);
+
         if (mPrevDist < mThreshold)
             mState = State.NEAR;
         else
             mState = State.FAR;
 
+        log_thread("pickZone(%b) - mDisconnectState == %s, New state == %s", isReconnect,
+                   mDisconnectState, mState);
 
         if (isReconnect && mDisconnectState == State.FAR && mState == State.NEAR) {
             mLapCount += LAP_COUNT_INCREMENT;
+            log_thread("pickZone() - increased lap count to %d on reconnect.", mLapCount);
         }
     }
+
+    private void log_thread(String format, Object... args) {
+        String s = String.format(format, args);
+        s = String.format("[Thread %d] %s", Thread.currentThread().getId(), s);
+        Log.d(TAG, s);
+    }
+
 }
