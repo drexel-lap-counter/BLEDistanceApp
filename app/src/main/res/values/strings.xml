@@ -26,4 +26,11 @@
     <string name="label_btn_set_threshold">Set</string>
     <string name="title_lap_count">Lap Count Test</string>
     <string name="label_sliding_window_state">Sliding Window State:</string>
+    <string name="label_calibrate_instructions">Move your device to the threshold and press \"Calibrate\".</string>
+    <string name="label_calibrate">Calibrate</string>
+    <string name="label_connecting">Connecting...</string>
+    <string name="label_device_disconnected_try_reconnect">Device disconnected. Trying to reconnect...</string>
+    <string name="label_collecting_rssi_values">Collecting RSSI values...</string>
+    <string name="label_stop">Stop</string>
+    <string name="label_done">Done</string>
 </resources>

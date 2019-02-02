@@ -23,10 +23,6 @@ public class LapCountActivity extends AppCompatActivity {
     // For logging
     private final static String TAG = LapCountActivity.class.getSimpleName();
 
-    // Labels for data from the intent
-    public static final String EXTRAS_DEVICE_NAME = "DEVICE_NAME";
-    public static final String EXTRAS_DEVICE_ADDRESS = "DEVICE_ADDRESS";
-
     // How often to poll for RSSI and update its TextView.
     public static final int RSSI_PERIOD_NORMAL = 500;
     public static final int RSSI_PERIOD_FAST = 250;
@@ -63,15 +59,15 @@ public class LapCountActivity extends AppCompatActivity {
     // Filter for RSSI values since they are noisy
     private MovingAverage mRssiFilter = new MovingAverage(10);
 
-    private Double threshold = 60.0;
-    private int windowSize = 3;
+    private static final double DEFAULT_THRESHOLD = 60;
+    private static final int DEFAULT_WINDOW_SIZE = 3;
+
+    private double mThreshold;
 
     private int mConnectionCount = 0;
 
     // Try our new sliding window lap counter. x ft threshold, sliding window size n
-    private SlidingWindowCounter mLapCounter = new SlidingWindowCounter(threshold, windowSize);
-
-    private final DisconnectChecker mDisconnectChecker = new DisconnectChecker();
+    private SlidingWindowCounter mLapCounter;
 
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
         @Override
@@ -99,7 +95,6 @@ public class LapCountActivity extends AppCompatActivity {
             if (BLEService.ACTION_GATT_CONNECTED.equals(action)) {
                 mConnected = true;
                 mConnectionCount++;
-                mDisconnectChecker.reset();
 
                 if (mConnectionCount > 1) {
                     String s = String.format("%s (%d)", getString(R.string.reconnected),
@@ -137,17 +132,6 @@ public class LapCountActivity extends AppCompatActivity {
             } else if (BLEService.ACTION_RSSI_AVAILABLE.equals(action)) {
                 int rssi = intent.getIntExtra(BLEService.EXTRA_RSSI, 0);
 
-                // I'm going to leave this commented out for now.
-                // Manually calling disconnect() on the GATT server causes the server to emit false
-                // connect events almost immediately after the disconnect(), even if the BLE
-                // device is dead. These spurious connects /sometimes/ make reconnects
-                // more spotty, less reliable, and slow.
-//                if (mDisconnectChecker.shouldDisconnect(rssi)) {
-//                    log_thread("mDisconnectChecker.shouldDisconnect(rssi) == true");
-//                    mBleService.disconnect();
-//                    return;
-//                }
-
                 mViewRssi.setText(String.format("%d dBm", rssi));
 
                 // Filter out null RSSI values
@@ -170,8 +154,12 @@ public class LapCountActivity extends AppCompatActivity {
 
         // Get the device info from the intent
         Intent intent = getIntent();
-        mDeviceName = intent.getStringExtra(EXTRAS_DEVICE_NAME);
-        mDeviceAddress = intent.getStringExtra(EXTRAS_DEVICE_ADDRESS);
+        mDeviceName = intent.getStringExtra(CalibrateActivity.EXTRAS_DEVICE_NAME);
+        mDeviceAddress = intent.getStringExtra(CalibrateActivity.EXTRAS_DEVICE_ADDRESS);
+        mThreshold = intent.getDoubleExtra(CalibrateActivity.EXTRAS_CALIBRATED_THRESHOLD,
+                                           DEFAULT_THRESHOLD);
+
+        mLapCounter = new SlidingWindowCounter(mThreshold, DEFAULT_WINDOW_SIZE);
 
         // Get the text fields we can update
         mViewState = findViewById(R.id.device_state);
@@ -186,13 +174,13 @@ public class LapCountActivity extends AppCompatActivity {
         // Display the device name and address
         mViewName.setText(mDeviceName);
         mViewAddress.setText(mDeviceAddress);
-        mViewThreshold.setText(Double.toString(threshold));
+        mViewThreshold.setText(Double.toString(mThreshold));
 
         // Set the title bar and add a back button
         getSupportActionBar().setTitle(R.string.title_lap_count);
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
 
-        Intent gattServiceIntent = new Intent(this,BLEService.class);
+        Intent gattServiceIntent = new Intent(this, BLEService.class);
         bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
     }
 
@@ -259,11 +247,11 @@ public class LapCountActivity extends AppCompatActivity {
             return;
         }
 
-        this.threshold = Double.parseDouble(t.toString());
-        mLapCounter = new SlidingWindowCounter(threshold, windowSize);
+        this.mThreshold = Double.parseDouble(t.toString());
+        mLapCounter = new SlidingWindowCounter(mThreshold, DEFAULT_WINDOW_SIZE);
 
         thresholdEditor.setText("");
-        mViewThreshold.setText(Double.toString(threshold));
+        mViewThreshold.setText(Double.toString(mThreshold));
     }
 
     private void scheduleRssiRequest() {

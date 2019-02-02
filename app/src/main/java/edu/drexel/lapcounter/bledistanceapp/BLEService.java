@@ -18,9 +18,9 @@ public class BLEService extends Service {
     private static final String TAG = BLEService.class.getSimpleName();
 
     // States of connection
-    private static final int STATE_DISCONNECTED = 0;
-    private static final int STATE_CONNECTING = 1;
-    private static final int STATE_CONNECTED = 2;
+    public static final int STATE_DISCONNECTED = 0;
+    public static final int STATE_CONNECTING = 1;
+    public static final int STATE_CONNECTED = 2;
 
     // These are needed for making connections
     private BluetoothManager mBluetoothManager;
@@ -214,5 +214,9 @@ public class BLEService extends Service {
         }
         mBluetoothGatt.close();
         mBluetoothGatt = null;
+    }
+
+    public int getConnectionState() {
+        return mConnectionState;
     }
 }

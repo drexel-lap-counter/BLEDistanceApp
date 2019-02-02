@@ -8,11 +8,11 @@ import android.bluetooth.BluetoothManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.Bundle;
 import android.os.Handler;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.Menu;
@@ -29,6 +29,8 @@ public class ScanActivity extends AppCompatActivity {
     // Unique IDs for requesting permissions
     private static final int REQUEST_LOCATION = 1;
     private static final int REQUEST_ENABLE_BT = 2;
+
+    private static final int REQUEST_CALIBRATED_THRESHOLD = 3;
 
     // Scanning lasts 10 seconds
     private static final int SCAN_PERIOD = 10000;
@@ -80,9 +82,7 @@ public class ScanActivity extends AppCompatActivity {
                 mScanning = false;
             }
 
-            // Launch the distance estimation app
-            launchDistanceActivity(device);
-
+            launchCalibrateActivity(device);
         }
     };
 
@@ -128,7 +128,18 @@ public class ScanActivity extends AppCompatActivity {
         if (requestCode == REQUEST_ENABLE_BT && resultCode == Activity.RESULT_CANCELED) {
             finish();
             return;
+        } else if (requestCode == REQUEST_CALIBRATED_THRESHOLD) {
+            if (resultCode == Activity.RESULT_CANCELED || data == null) {
+                Toast.makeText(this, "Something went wrong when calibrating.",
+                        Toast.LENGTH_SHORT).show();
+                Log.e(TAG, "requestCode == REQUEST_CALIBRATED_THRESHOLD && " +
+                           "(resultCode == Activity.RESULT_CANCELED || data == null)");
+                return;
+            }
+
+            launchDistanceActivity(data);
         }
+
         super.onActivityResult(requestCode, resultCode, data);
     }
 
@@ -170,12 +181,18 @@ public class ScanActivity extends AppCompatActivity {
         mDeviceList.setOnItemClickListener(mOnItemClick);
     }
 
-    void launchDistanceActivity(BluetoothDevice device) {
-        Intent intent = new Intent(this, LapCountActivity.class);
-        intent.putExtra(LapCountActivity.EXTRAS_DEVICE_NAME, device.getName());
-        intent.putExtra(LapCountActivity.EXTRAS_DEVICE_ADDRESS, device.getAddress());
-        startActivity(intent);
+    void launchDistanceActivity(Intent launchData) {
+        launchData.setClass(this, LapCountActivity.class);
+        startActivity(launchData);
     }
+
+    void launchCalibrateActivity(BluetoothDevice device) {
+        Intent intent = new Intent(this, CalibrateActivity.class);
+        intent.putExtra(CalibrateActivity.EXTRAS_DEVICE_NAME, device.getName());
+        intent.putExtra(CalibrateActivity.EXTRAS_DEVICE_ADDRESS, device.getAddress());
+        startActivityForResult(intent, REQUEST_CALIBRATED_THRESHOLD);
+    }
+
 
     /**
      * BLE requires at least course location permissions. Creepy.
