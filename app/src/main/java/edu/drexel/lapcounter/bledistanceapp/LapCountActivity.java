@@ -6,10 +6,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -25,8 +27,12 @@ public class LapCountActivity extends AppCompatActivity {
     public static final String EXTRAS_DEVICE_NAME = "DEVICE_NAME";
     public static final String EXTRAS_DEVICE_ADDRESS = "DEVICE_ADDRESS";
 
-    // Update RSSI field every second
-    public static final int RSSI_PERIOD = 500;
+    // How often to poll for RSSI and update its TextView.
+    public static final int RSSI_PERIOD_NORMAL = 500;
+    public static final int RSSI_PERIOD_FAST = 250;
+
+    // How often a reconnect should be attempted.
+    public static final int RECONNECT_PERIOD = 1000;
 
     // Name and MAC address of the selected Bluetooth device
     private String mDeviceName;
@@ -40,9 +46,13 @@ public class LapCountActivity extends AppCompatActivity {
     private TextView mViewRssiFiltered;
     private TextView mViewLapCount;
     private TextView mViewThreshold;
+    private TextView mSlidingWindowState;
 
     // Whether we are connected to the device
     private boolean mConnected = false;
+
+    // Whether we disconnected by pressing the "Disconnect" menu item.
+    private boolean mManuallyDisconnected = false;
 
     // Handler for requesting the RSSI from the BLE Service
     private Handler mHandler = new Handler();
@@ -51,12 +61,17 @@ public class LapCountActivity extends AppCompatActivity {
     private BLEService mBleService;
 
     // Filter for RSSI values since they are noisy
-    private LowPassFilter mRssiFilter = new MovingAverage(10);
+    private MovingAverage mRssiFilter = new MovingAverage(10);
 
     private Double threshold = 60.0;
     private int windowSize = 3;
+
+    private int mConnectionCount = 0;
+
     // Try our new sliding window lap counter. x ft threshold, sliding window size n
-    private LapCounter mLapCounter = new SlidingWindowCounter(threshold, windowSize);
+    private SlidingWindowCounter mLapCounter = new SlidingWindowCounter(threshold, windowSize);
+
+    private final DisconnectChecker mDisconnectChecker = new DisconnectChecker();
 
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
         @Override
@@ -80,18 +95,59 @@ public class LapCountActivity extends AppCompatActivity {
         @Override
         public void onReceive(Context context, Intent intent) {
             final String action = intent.getAction();
+
             if (BLEService.ACTION_GATT_CONNECTED.equals(action)) {
                 mConnected = true;
-                updateConnectionState(R.string.connected);
+                mConnectionCount++;
+                mDisconnectChecker.reset();
+
+                if (mConnectionCount > 1) {
+                    String s = String.format("%s (%d)", getString(R.string.reconnected),
+                                             mConnectionCount);
+                    updateConnectionState(s);
+                    log_thread("Reconnected.");
+                } else {
+                    updateConnectionState(R.string.connected);
+                }
+
                 invalidateOptionsMenu();
                 scheduleRssiRequest();
             } else if (BLEService.ACTION_GATT_DISCONNECTED.equals(action)) {
+                Log.d(TAG, "Received a disconnect event.");
                 mConnected = false;
                 updateConnectionState(R.string.disconnected);
                 invalidateOptionsMenu();
                 clearUI();
+                mRssiFilter.clear();
+                mLapCounter.onDisconnect();
+
+
+                if (mManuallyDisconnected) {
+                    // So this disconnect event corresponds to us manually disconnecting.
+                    // Reset this flag so we can track future manual disconnects.
+                    mManuallyDisconnected = false;
+                    Log.d(TAG, "Cleared flag for manual disconnect.");
+                } else {
+                    // Otherwise, this disconnect event corresponds to something else, e.g.,
+                    // going out of range.
+                    // Let's try to reconnect.
+                    log_thread("Scheduling a reconnect.");
+                    scheduleReconnect();
+                }
             } else if (BLEService.ACTION_RSSI_AVAILABLE.equals(action)) {
                 int rssi = intent.getIntExtra(BLEService.EXTRA_RSSI, 0);
+
+                // I'm going to leave this commented out for now.
+                // Manually calling disconnect() on the GATT server causes the server to emit false
+                // connect events almost immediately after the disconnect(), even if the BLE
+                // device is dead. These spurious connects /sometimes/ make reconnects
+                // more spotty, less reliable, and slow.
+//                if (mDisconnectChecker.shouldDisconnect(rssi)) {
+//                    log_thread("mDisconnectChecker.shouldDisconnect(rssi) == true");
+//                    mBleService.disconnect();
+//                    return;
+//                }
+
                 mViewRssi.setText(String.format("%d dBm", rssi));
 
                 // Filter out null RSSI values
@@ -100,6 +156,12 @@ public class LapCountActivity extends AppCompatActivity {
             }
         }
     };
+
+    private void log_thread(String format, Object... args) {
+        String s = String.format(format, args);
+        s = String.format("[Thread %d] %s", Thread.currentThread().getId(), s);
+        Log.d(TAG, s);
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -119,6 +181,7 @@ public class LapCountActivity extends AppCompatActivity {
         mViewRssiFiltered = findViewById(R.id.device_rssi_filtered);
         mViewLapCount = findViewById(R.id.lap_count);
         mViewThreshold = findViewById(R.id.threshold);
+        mSlidingWindowState = findViewById(R.id.sliding_window_state);
 
         // Display the device name and address
         mViewName.setText(mDeviceName);
@@ -177,6 +240,8 @@ public class LapCountActivity extends AppCompatActivity {
                 mBleService.connect(mDeviceAddress);
                 return true;
             case R.id.menu_disconnect:
+                mManuallyDisconnected = true;
+                Log.d(TAG, "onOptionsItemSelected() - The user manually disconnected.");
                 mBleService.disconnect();
                 return true;
             case android.R.id.home:
@@ -188,7 +253,13 @@ public class LapCountActivity extends AppCompatActivity {
 
     public void updateThreshold(View view){
         EditText thresholdEditor = findViewById(R.id.edit_threshold);
-        this.threshold = Double.parseDouble(thresholdEditor.getText().toString());
+        Editable t = thresholdEditor.getText();
+
+        if (TextUtils.isEmpty(t)) {
+            return;
+        }
+
+        this.threshold = Double.parseDouble(t.toString());
         mLapCounter = new SlidingWindowCounter(threshold, windowSize);
 
         thresholdEditor.setText("");
@@ -196,13 +267,20 @@ public class LapCountActivity extends AppCompatActivity {
     }
 
     private void scheduleRssiRequest() {
+        int period = RSSI_PERIOD_NORMAL;
+        if (mLapCounter.getState() == SlidingWindowCounter.State.UNKNOWN) {
+            period = RSSI_PERIOD_FAST;
+            log_thread("scheduleRssiRequest() - set RSSI period to fast (%d) because sliding " +
+                       "window state is unknown.", RSSI_PERIOD_FAST);
+        }
+
         mHandler.postDelayed(new Runnable() {
             @Override
             public void run() {
                 // Stop if we are no longer connected
                 if (!mConnected) {
-                    Log.d(TAG, "Stop Reading RSSI");
-                    scheduleReconnect();
+                    Log.d(TAG, "mConnected is false. I won't be scheduling another RSSI " +
+                               "request for now.");
                     return;
                 }
 
@@ -213,25 +291,29 @@ public class LapCountActivity extends AppCompatActivity {
                 // Schedule another RSSI request.
                 scheduleRssiRequest();
             }
-        }, RSSI_PERIOD);
+        }, period);
     }
 
     private void scheduleReconnect() {
         mHandler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                // if we're not connected
-                if (!mConnected) {
-                    if(mBleService.connect(mDeviceAddress)) {    // try to connect
-                        scheduleRssiRequest();          // schedule an RSSI request if we succeed
-                    }
-                    else {
-                        scheduleReconnect();            // otherwise try again
-                    }
+                if (mConnected) {
+                    Log.w(TAG, "scheduleReconnect() called when mConnected is true. _Probably_ " +
+                               "harmless, as a connect event could have fired between calls to " +
+                               "scheduleReconnect().");
                     return;
                 }
+
+                if (mBleService.connect(mDeviceAddress)) {
+                    return;
+                }
+
+                Log.w(TAG, "scheduleReconnect() - Connection attempt failed. Scheduling another " +
+                           "reconnect.");
+                scheduleReconnect();
             }
-        }, RSSI_PERIOD);
+        }, RECONNECT_PERIOD);
     }
 
     private void updateLapCount(int rssi) {
@@ -242,6 +324,16 @@ public class LapCountActivity extends AppCompatActivity {
         // the logic of the underlying lap counter
         int lapCount = mLapCounter.updateCount(Math.abs(filteredRssi));
         mViewLapCount.setText(String.format("%d Laps", lapCount));
+
+        boolean windowsFull = mLapCounter.windowIsFull() && mRssiFilter.windowIsFull();
+        if (mLapCounter.getState() == SlidingWindowCounter.State.UNKNOWN && windowsFull) {
+            log_thread("updateLapCount() - Windows are full. SlidingWindowCounter should now " +
+                       "pick a state.");
+            boolean isReconnect = mConnectionCount > 1;
+            mLapCounter.pickZone(isReconnect);
+        }
+
+        mSlidingWindowState.setText(mLapCounter.getState().toString());
     }
 
     private void clearUI() {
@@ -254,6 +346,15 @@ public class LapCountActivity extends AppCompatActivity {
             @Override
             public void run() {
                 mViewState.setText(resourceId);
+            }
+        });
+    }
+
+    private void updateConnectionState(final String state) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mViewState.setText(state);
             }
         });
     }

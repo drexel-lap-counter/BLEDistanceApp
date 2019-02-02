@@ -8,4 +8,9 @@ public interface LapCounter {
      * @return the updated lap count.
      */
     int updateCount(double dist);
+
+    /**
+     * Reset state, but not the lap count.
+     */
+    void onDisconnect();
 }
